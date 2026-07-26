@@ -243,7 +243,7 @@ def get_feedback_table_and_stats():
     return "Log file missing.", pd.DataFrame()
 
 # Build Gradio Interface
-with gr.Blocks(theme=gr.themes.Slate()) as demo:
+with gr.Blocks(theme=gr.themes.Soft()) as demo:
     gr.Markdown("# 🏭 Honeywell GradeIQ: Automatic Grade Change Intelligence Studio")
     gr.Markdown("### *Predictive Off-Spec Prevention, Explainable Rationale, and Source-Tagged Setpoint Optimization for QCS Paper Mills*")
     

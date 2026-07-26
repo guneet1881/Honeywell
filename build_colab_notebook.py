@@ -314,7 +314,7 @@ def create_colab_notebook():
                     "    acc_rate = (full_log['Operator_Decision'] == 'ACCEPTED').mean() * 100\n",
                     "    return f'✅ Operator **{dec}** recorded! Model Trust Acceptance Rate: **{acc_rate:.1f}%** across {len(full_log)} logged decisions.', full_log\n",
                     "\n",
-                    "with gr.Blocks(theme=gr.themes.Slate()) as app:\n",
+                    "with gr.Blocks(theme=gr.themes.Soft()) as app:\n",
                     "    gr.Markdown('# 🏭 Honeywell GradeIQ: Interactive Operator Studio')\n",
                     "    with gr.Row():\n",
                     "        b_drop = gr.Dropdown(choices=batch_choices, value=batch_choices[0], label='Select Grade Transition Event')\n",
