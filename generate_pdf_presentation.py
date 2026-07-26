@@ -1,17 +1,15 @@
 """
 Honeywell QCS Hackathon Challenge: Grade Change Intelligence
-Module 5: Automated SIH 6-Slide Presentation PDF Generator
+Module 5: Automated SIH 6-Slide Presentation PDF Generator (Fixed Background Layer & Typography)
 
 This script generates the official submission presentation deck ('Honeywell_GradeIQ_Submission_Presentation.pdf')
 adhering strictly to the 6-slide template required by the competition.
 
-Key Enhancements over typical drafts:
-- Professional 16:9 Widescreen layout with elegant dark corporate styling (Honeywell Industrial Blue/Slate Theme)
-- Clean layout engines (Table & Paragraph spacing) ensuring ZERO text-over-image overlaps
-- Custom programmatic generation of high-resolution diagrams and diagnostic figures embedded directly into slides:
-  * Architecture Workflow Flowchart (Slide 3)
-  * Basis Weight Trajectory & Off-Spec Risk Curve (Slide 5)
-  * SHAP XAI Explainability Breakdown Chart (Slide 5)
+Key Architecture Fixes & Highlights:
+- Implements ReportLab page callbacks (onFirstPage/onLaterPages) so background banners and colors are rendered
+  BENEATH all text, tables, and vector charts (eliminating whiteout/blank canvas issues).
+- Professional 16:9 Widescreen layout (960x540 points) with vibrant Honeywell Industrial Slate theme.
+- Custom synthetic diagnostic charts generated via Matplotlib and embedded cleanly without overlapping text.
 """
 
 import os
@@ -22,52 +20,41 @@ import numpy as np
 from reportlab.lib.pagesizes import landscape
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak, KeepTogether
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak
 from reportlab.pdfgen import canvas
 
 # Define slide size: 16:9 Widescreen (960 x 540 points)
 SLIDE_WIDTH, SLIDE_HEIGHT = 960, 540
 
-# Custom canvas to add professional header bars and footers to every slide
-class SlideCanvas(canvas.Canvas):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.pages = []
-        
-    def showPage(self):
-        self.pages.append(dict(self.__dict__))
-        self._startPage()
-        
-    def save(self):
-        num_pages = len(self.pages)
-        for page in self.pages:
-            self.__dict__.update(page)
-            self.draw_slide_background_and_footer(num_pages)
-            super().showPage()
-        super().save()
-        
-    def draw_slide_background_and_footer(self, total_pages):
-        page_num = self._pageNumber
-        # Draw background color (Very light crisp industrial gray-blue background)
-        self.setFillColor(colors.HexColor("#f8fafe"))
-        self.rect(0, 0, SLIDE_WIDTH, SLIDE_HEIGHT, fill=1, stroke=0)
-        
-        # Top banner bar
-        self.setFillColor(colors.HexColor("#0d1b2a"))
-        self.rect(0, SLIDE_HEIGHT - 60, SLIDE_WIDTH, 60, fill=1, stroke=0)
-        
-        # Bottom accent bar
-        self.setFillColor(colors.HexColor("#0066cc"))
-        self.rect(0, 0, SLIDE_WIDTH, 8, fill=1, stroke=0)
-        
-        # Footer text
-        self.setFont("Helvetica-Bold", 10)
-        self.setFillColor(colors.HexColor("#334155"))
-        footer_text = f"Honeywell QCS Challenge: Grade Change Intelligence | Team GradeIQ (Student ID: 23BAI10720)"
-        self.drawString(30, 20, footer_text)
-        
-        page_str = f"Slide {page_num} of {total_pages}"
-        self.drawRightString(SLIDE_WIDTH - 30, 20, page_str)
+def draw_slide_background(canvas_obj, doc_obj):
+    """
+    Callback function executed at the start of each page BEFORE text/charts are drawn.
+    Guarantees that background shapes sit on the bottom layer.
+    """
+    canvas_obj.saveState()
+    page_num = canvas_obj._pageNumber
+    
+    # Draw background color (Very light crisp industrial gray-blue background)
+    canvas_obj.setFillColor(colors.HexColor("#f8fafe"))
+    canvas_obj.rect(0, 0, SLIDE_WIDTH, SLIDE_HEIGHT, fill=1, stroke=0)
+    
+    # Top header banner bar
+    canvas_obj.setFillColor(colors.HexColor("#0d1b2a"))
+    canvas_obj.rect(0, SLIDE_HEIGHT - 60, SLIDE_WIDTH, 60, fill=1, stroke=0)
+    
+    # Bottom accent bar
+    canvas_obj.setFillColor(colors.HexColor("#0066cc"))
+    canvas_obj.rect(0, 0, SLIDE_WIDTH, 8, fill=1, stroke=0)
+    
+    # Footer text
+    canvas_obj.setFont("Helvetica-Bold", 11)
+    canvas_obj.setFillColor(colors.HexColor("#334155"))
+    footer_text = "Honeywell QCS Challenge: Grade Change Intelligence | Team GradeIQ (Student ID: 23BAI10720)"
+    canvas_obj.drawString(30, 18, footer_text)
+    
+    page_str = f"Slide {page_num} of 6"
+    canvas_obj.drawRightString(SLIDE_WIDTH - 30, 18, page_str)
+    canvas_obj.restoreState()
 
 def generate_slide_diagrams():
     print("[*] Generating high-resolution vector figures for presentation deck...")
@@ -99,7 +86,7 @@ def generate_slide_diagrams():
     plt.close()
 
     # FIGURE 2: Basis Weight Trajectory Forecasting (For Slide 5)
-    fig, ax = plt.subplots(figsize=(5.5, 3.8), dpi=200)
+    fig, ax = plt.subplots(figsize=(5.5, 3.6), dpi=200)
     ax.set_facecolor('#0f172a')
     fig.patch.set_facecolor('#0f172a')
     
@@ -107,11 +94,9 @@ def generate_slide_diagrams():
     setpoint = np.ones_like(x) * 120.0 # Transition to Grade B18 (120 GSM)
     actual = 80.0 + (120.0 - 80.0) / (1 + np.exp(-0.3*(x-10))) + np.random.normal(0, 0.4, size=60)
     
-    # Uncorrected deviation trend after step 35
     uncorrected = np.copy(actual)
     uncorrected[35:] += np.linspace(0, 6.5, 25) + np.random.normal(0, 0.3, size=25)
     
-    # Optimized trajectory
     optimized = np.copy(actual)
     optimized[35:] = 120.0 + np.random.normal(0, 0.3, size=25)
     
@@ -121,7 +106,7 @@ def generate_slide_diagrams():
     ax.plot(x[35:], uncorrected[35:], '--x', color='#f87171', label='Uncorrected (Off-Spec Risk!)', markersize=5, linewidth=2)
     ax.plot(x[35:], optimized[35:], '-d', color='#10b981', label='GradeIQ Optimized', markersize=5, linewidth=2.5)
     
-    ax.set_title("Basis Weight Trajectory & AI Stabilization", color='white', fontweight='bold', fontsize=11, pad=10)
+    ax.set_title("Basis Weight Trajectory & AI Stabilization", color='white', fontweight='bold', fontsize=11, pad=8)
     ax.set_xlabel("Transition Time (Minutes)", color='#cbd5e1', fontsize=9)
     ax.set_ylabel("Basis Weight (GSM)", color='#cbd5e1', fontsize=9)
     ax.tick_params(colors='#94a3b8')
@@ -132,7 +117,7 @@ def generate_slide_diagrams():
     plt.close()
 
     # FIGURE 3: SHAP Rationale Feature Contributions (For Slide 5)
-    fig, ax = plt.subplots(figsize=(5.5, 3.8), dpi=200)
+    fig, ax = plt.subplots(figsize=(5.5, 3.6), dpi=200)
     ax.set_facecolor('#0f172a')
     fig.patch.set_facecolor('#0f172a')
     
@@ -141,7 +126,7 @@ def generate_slide_diagrams():
     colors_list = ['#10b981', '#ef4444', '#ef4444', '#ef4444', '#ef4444']
     
     bars = ax.barh(features, weights, color=colors_list, edgecolor='none', height=0.6)
-    ax.set_title("SHAP Explainable AI: Off-Spec Root Causes (%)", color='white', fontweight='bold', fontsize=11, pad=10)
+    ax.set_title("SHAP Explainable AI: Off-Spec Root Causes (%)", color='white', fontweight='bold', fontsize=11, pad=8)
     ax.set_xlabel("Relative Impact on Basis Weight Deviation (%)", color='#cbd5e1', fontsize=9)
     ax.tick_params(colors='#94a3b8', labelsize=9)
     ax.grid(True, linestyle=':', alpha=0.3, color='#64748b', axis='x')
@@ -159,17 +144,24 @@ def generate_slide_diagrams():
 def build_pdf_deck():
     generate_slide_diagrams()
     pdf_filename = "Honeywell_GradeIQ_Submission_Presentation.pdf"
-    doc = SimpleDocTemplate(pdf_filename, pagesize=(SLIDE_WIDTH, SLIDE_HEIGHT), leftMargin=40, rightMargin=40, topMargin=75, bottomMargin=50)
+    doc = SimpleDocTemplate(
+        pdf_filename, 
+        pagesize=(SLIDE_WIDTH, SLIDE_HEIGHT), 
+        leftMargin=40, 
+        rightMargin=40, 
+        topMargin=70, 
+        bottomMargin=45
+    )
     
     styles = getSampleStyleSheet()
     
     # Custom Typography Styles
-    style_slide_title = ParagraphStyle('SlideTitle', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=24, textColor=colors.HexColor("#ffffff"), spaceAfter=10)
+    style_slide_title = ParagraphStyle('SlideTitle', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=22, textColor=colors.HexColor("#ffffff"), spaceAfter=15)
     style_cover_title = ParagraphStyle('CoverTitle', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=28, textColor=colors.HexColor("#0d1b2a"), leading=34, spaceAfter=15, alignment=1)
-    style_cover_subtitle = ParagraphStyle('CoverSub', parent=styles['Normal'], fontName='Helvetica', fontSize=16, textColor=colors.HexColor("#0284c7"), leading=22, spaceAfter=30, alignment=1)
-    style_h2 = ParagraphStyle('H2', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=15, textColor=colors.HexColor("#1e3a8a"), leading=19, spaceBefore=8, spaceAfter=6)
-    style_body = ParagraphStyle('Body', parent=styles['Normal'], fontName='Helvetica', fontSize=12.5, textColor=colors.HexColor("#1e293b"), leading=17, spaceBefore=4, spaceAfter=8)
-    style_bullet = ParagraphStyle('Bullet', parent=styles['Normal'], fontName='Helvetica', fontSize=12.5, textColor=colors.HexColor("#1e293b"), leading=17, leftIndent=18, bulletIndent=5, spaceAfter=6)
+    style_cover_subtitle = ParagraphStyle('CoverSub', parent=styles['Normal'], fontName='Helvetica', fontSize=16, textColor=colors.HexColor("#0284c7"), leading=22, spaceAfter=25, alignment=1)
+    style_h2 = ParagraphStyle('H2', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=15, textColor=colors.HexColor("#1e3a8a"), leading=19, spaceBefore=4, spaceAfter=8)
+    style_body = ParagraphStyle('Body', parent=styles['Normal'], fontName='Helvetica', fontSize=12.5, textColor=colors.HexColor("#1e293b"), leading=17, spaceBefore=2, spaceAfter=8)
+    style_bullet = ParagraphStyle('Bullet', parent=styles['Normal'], fontName='Helvetica', fontSize=12, textColor=colors.HexColor("#1e293b"), leading=16.5, leftIndent=18, bulletIndent=5, spaceAfter=6)
     style_ref_bullet = ParagraphStyle('RefBullet', parent=styles['Normal'], fontName='Helvetica', fontSize=11.5, textColor=colors.HexColor("#334155"), leading=16, leftIndent=15, bulletIndent=5, spaceAfter=10)
     style_cover_meta = ParagraphStyle('CoverMeta', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=13, textColor=colors.HexColor("#1e293b"), leading=20, alignment=1)
 
@@ -179,23 +171,23 @@ def build_pdf_deck():
     # SLIDE 1: TITLE PAGE (Cover)
     # ==========================================
     story.append(Paragraph("GRADE CHANGE INTELLIGENCE IN PAPER MAKING PROCESS", style_slide_title))
-    story.append(Spacer(1, 35))
+    story.append(Spacer(1, 30))
     story.append(Paragraph("GradeIQ: Explainable Automatic Grade Change Intelligence & Setpoint Optimizer", style_cover_title))
-    story.append(Paragraph("<b>Theme:</b> Smart Automation / Industrial Process Intelligence | <b>Honeywell QCS Hackathon Challenge</b>", style_cover_subtitle))
-    story.append(Spacer(1, 15))
+    story.append(Paragraph("<b>Theme:</b> Smart Automation / Industrial Process Intelligence | <b>Honeywell QCS Challenge</b>", style_cover_subtitle))
+    story.append(Spacer(1, 10))
     
     meta_box_data = [
         [Paragraph("<b>Student Name:</b> Guneet Kaur Juneja", style_cover_meta), Paragraph("<b>Student ID:</b> 23BAI10720", style_cover_meta)],
         [Paragraph("<b>Problem Statement ID:</b> Honeywell QCS Challenge", style_cover_meta), Paragraph("<b>Proposed Solution:</b> Ensemble ML + SHAP XAI Advisor", style_cover_meta)]
     ]
-    meta_table = Table(meta_box_data, colWidths=[430, 430], rowHeights=[40, 40])
+    meta_table = Table(meta_box_data, colWidths=[430, 430], rowHeights=[38, 38])
     meta_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#e2e8f0")),
         ('BOX', (0,0), (-1,-1), 1.5, colors.HexColor("#0284c7")),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('TOPPADDING', (0,0), (-1,-1), 8),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
     ]))
     story.append(meta_table)
     story.append(PageBreak())
@@ -204,7 +196,7 @@ def build_pdf_deck():
     # SLIDE 2: PROPOSED SOLUTION (Executive Overview)
     # ==========================================
     story.append(Paragraph("PROPOSED SOLUTION: GRADEIQ AI INTELLIGENCE LAYER", style_slide_title))
-    story.append(Spacer(1, 10))
+    story.append(Spacer(1, 5))
     story.append(Paragraph("An intelligent external advisor that enhances Honeywell QCS Machine Direction (MD) Multivariable Model Predictive Control without disrupting plant hardware loops.", style_body))
     story.append(Spacer(1, 5))
     
@@ -217,14 +209,14 @@ def build_pdf_deck():
     ]
     for b in sol_bullets:
         story.append(Paragraph(f"• &nbsp; {b}", style_bullet))
-        story.append(Spacer(1, 5))
+        story.append(Spacer(1, 3))
     story.append(PageBreak())
 
     # ==========================================
     # SLIDE 3: TECHNICAL APPROACH & SYSTEM ARCHITECTURE
     # ==========================================
     story.append(Paragraph("TECHNICAL APPROACH & MODULAR SYSTEM ARCHITECTURE", style_slide_title))
-    story.append(Spacer(1, 10))
+    story.append(Spacer(1, 5))
     
     col1_text = [
         Paragraph("<b>Core Tech Stack & Methodology</b>", style_h2),
@@ -242,7 +234,7 @@ def build_pdf_deck():
         ('LEFTPADDING', (1,0), (1,0), 20),
     ]))
     story.append(arch_table)
-    story.append(Spacer(1, 15))
+    story.append(Spacer(1, 10))
     story.append(Paragraph("<b>Data Flow Communication:</b> Ingests historical DCS trends, QCS scanner logs, MIS reports, and operator alarms -> Executes Kalman sliding-window feature imputation -> Predicts deviation trajectories -> Surfaces source-tagged explainable guidance.", style_body))
     story.append(PageBreak())
 
@@ -250,7 +242,7 @@ def build_pdf_deck():
     # SLIDE 4: FEASIBILITY, VIABILITY & EDGE CASE HANDLING
     # ==========================================
     story.append(Paragraph("FEASIBILITY, INDUSTRIAL VIABILITY & EDGE CASE MITIGATION", style_slide_title))
-    story.append(Spacer(1, 10))
+    story.append(Spacer(1, 5))
     
     feas_col1 = [
         Paragraph("<b>Why Feasible & Deployable Today</b>", style_h2),
@@ -280,12 +272,12 @@ def build_pdf_deck():
     # SLIDE 5: ARTIFACTS & DASHBOARD PROTOTYPE DEMO
     # ==========================================
     story.append(Paragraph("ARTIFACTS & REAL-TIME OPERATOR ADVISORY STUDIO", style_slide_title))
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 5))
     story.append(Paragraph("<b>Deliverables Repository Structure:</b> Includes realistic industrial dataset (<i>paper_mill_grade_change_data.csv</i>), ensemble XAI pipeline, interactive Gradio/Plotly dashboard studio, and automated Google Colab 1-click execution notebook.", style_body))
     story.append(Spacer(1, 5))
     
-    img_traj = Image("slide_fig_trajectory.png", width=420, height=270)
-    img_shap = Image("slide_fig_shap.png", width=420, height=270)
+    img_traj = Image("slide_fig_trajectory.png", width=420, height=255)
+    img_shap = Image("slide_fig_shap.png", width=420, height=255)
     
     demo_table = Table([[img_traj, img_shap]], colWidths=[440, 440])
     demo_table.setStyle(TableStyle([
@@ -299,7 +291,7 @@ def build_pdf_deck():
     # SLIDE 6: RESEARCH, REFERENCES & INDUSTRIAL BENCHMARKS
     # ==========================================
     story.append(Paragraph("RESEARCH, REFERENCES & INDUSTRIAL BENCHMARKS", style_slide_title))
-    story.append(Spacer(1, 15))
+    story.append(Spacer(1, 10))
     
     refs = [
         "<b>Honeywell Experion MX & QCS Automatic Grade Change Application Notes:</b> Product documentation on Machine Direction (MD) Multivariable Model Predictive Control, target calculation, and coordinated ramping of paper machine setpoints.",
@@ -310,9 +302,10 @@ def build_pdf_deck():
     ]
     for r in refs:
         story.append(Paragraph(f"<b>[Ref {refs.index(r)+1}]</b> &nbsp; {r}", style_ref_bullet))
-        story.append(Spacer(1, 8))
+        story.append(Spacer(1, 6))
 
-    doc.build(story, canvasmaker=SlideCanvas)
+    # Build document using onFirstPage/onLaterPages callbacks to ensure correct drawing layer order!
+    doc.build(story, onFirstPage=draw_slide_background, onLaterPages=draw_slide_background)
     print(f"[+] Official 6-Slide Presentation PDF successfully compiled: '{pdf_filename}'")
     return pdf_filename
 
