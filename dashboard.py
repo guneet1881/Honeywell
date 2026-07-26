@@ -211,7 +211,8 @@ def analyze_transition(selected_batch_str):
 # Feedback Logger Trigger
 def record_decision(rec_data_str, decision_type):
     if not rec_data_str or rec_data_str == "":
-        return "⚠️ No active suggestion selected.", get_feedback_table_and_stats()
+        stats, df = get_feedback_table_and_stats()
+        return "⚠️ No active suggestion selected.", stats, df
         
     parts = [p.strip() for p in rec_data_str.split("|")]
     batch_id = int(parts[0])
@@ -230,7 +231,8 @@ def record_decision(rec_data_str, decision_type):
     )
     
     msg = f"✅ Success: Operator **{decision_type}** decision recorded for Batch #{batch_id} (`{parameter}`). Updated Model Trust Accuracy Rate: **{accept_rate}%** across {total_evals} logged decisions."
-    return msg, get_feedback_table_and_stats()
+    stats, df = get_feedback_table_and_stats()
+    return msg, stats, df
 
 def get_feedback_table_and_stats():
     if os.path.exists("operator_feedback_log.csv"):
@@ -343,14 +345,14 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
         outputs=[risk_box, rationale_box, traj_plot, shap_plot, rec1_md, rec1_hidden, rec2_md, rec2_hidden, rec3_md, rec3_hidden, rec4_md, rec4_hidden]
     )
 
-    btn_acc1.click(lambda x: record_decision(x, "ACCEPTED"), inputs=[rec1_hidden], outputs=[feedback_status, (stats_md, log_table)])
-    btn_rej1.click(lambda x: record_decision(x, "REJECTED"), inputs=[rec1_hidden], outputs=[feedback_status, (stats_md, log_table)])
-    btn_acc2.click(lambda x: record_decision(x, "ACCEPTED"), inputs=[rec2_hidden], outputs=[feedback_status, (stats_md, log_table)])
-    btn_rej2.click(lambda x: record_decision(x, "REJECTED"), inputs=[rec2_hidden], outputs=[feedback_status, (stats_md, log_table)])
-    btn_acc3.click(lambda x: record_decision(x, "ACCEPTED"), inputs=[rec3_hidden], outputs=[feedback_status, (stats_md, log_table)])
-    btn_rej3.click(lambda x: record_decision(x, "REJECTED"), inputs=[rec3_hidden], outputs=[feedback_status, (stats_md, log_table)])
-    btn_acc4.click(lambda x: record_decision(x, "ACCEPTED"), inputs=[rec4_hidden], outputs=[feedback_status, (stats_md, log_table)])
-    btn_rej4.click(lambda x: record_decision(x, "REJECTED"), inputs=[rec4_hidden], outputs=[feedback_status, (stats_md, log_table)])
+    btn_acc1.click(lambda x: record_decision(x, "ACCEPTED"), inputs=[rec1_hidden], outputs=[feedback_status, stats_md, log_table])
+    btn_rej1.click(lambda x: record_decision(x, "REJECTED"), inputs=[rec1_hidden], outputs=[feedback_status, stats_md, log_table])
+    btn_acc2.click(lambda x: record_decision(x, "ACCEPTED"), inputs=[rec2_hidden], outputs=[feedback_status, stats_md, log_table])
+    btn_rej2.click(lambda x: record_decision(x, "REJECTED"), inputs=[rec2_hidden], outputs=[feedback_status, stats_md, log_table])
+    btn_acc3.click(lambda x: record_decision(x, "ACCEPTED"), inputs=[rec3_hidden], outputs=[feedback_status, stats_md, log_table])
+    btn_rej3.click(lambda x: record_decision(x, "REJECTED"), inputs=[rec3_hidden], outputs=[feedback_status, stats_md, log_table])
+    btn_acc4.click(lambda x: record_decision(x, "ACCEPTED"), inputs=[rec4_hidden], outputs=[feedback_status, stats_md, log_table])
+    btn_rej4.click(lambda x: record_decision(x, "REJECTED"), inputs=[rec4_hidden], outputs=[feedback_status, stats_md, log_table])
 
     refresh_log_btn.click(fn=get_feedback_table_and_stats, inputs=[], outputs=[stats_md, log_table])
     
